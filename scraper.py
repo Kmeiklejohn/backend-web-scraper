@@ -11,6 +11,7 @@ import argparse
 import requests
 import re
 import pprint
+from bs4 import BeautifulSoup
 from htmlparser import MyHTMLParser
 
 
@@ -51,6 +52,35 @@ def html_parse_data(html_string):
 
     return email, url_list, phone_numbers
 
+def soup_parser(html_string):
+    """using beautiful soup to parse and regex html data"""
+
+    soup = BeautifulSoup(html_string, 'html.parser')
+    tag_a = soup.find_all('a', href=True)
+    tag_email = soup.find_all('a')
+    tag_img = soup.find_all('img', src=True)
+    url_list = list(set(re.findall(
+        r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', str(tag_a))))
+    img_list = list(set(re.findall(
+        r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', str(tag_img))))
+    
+    email = list(
+        re.findall(
+            r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)',
+            str(tag_email)))
+
+    phone_numbers = []
+    pattern = r'\W*\D([2-9][0-8][0-9])\W*([2-9][0-9]{2})\W*([0-9]{4})(\se?x?t?(\d*))?\D'
+    matches = re.search(pattern, str(tag_a))
+    if matches:
+        phone_numbers.append(
+                '({}) {}-{}'.format(matches.group(1), matches.group(2), matches.group(3)))
+    
+    combine_list = img_list + url_list + email + phone_numbers
+     
+    print "\n".join(set(combine_list))
+    print phone_numbers
+    return
 
 def main():
     """ Main entry point of the app """
@@ -58,8 +88,8 @@ def main():
         description="Scrape the internet for information")
     parser.add_argument('url', type=str, help='enter an url.')
     args = parser.parse_args()
-    pprint.pprint(html_parse_data(args.url))
-
+    html_data = request_func(args.url)
+    soup_parser(html_data)
 
 if __name__ == "__main__":
     """ This is executed when run from the command line """
